@@ -23,13 +23,48 @@ app.get('/', (req, res) => {
 
 // 2. Ruta para probar si logró entrar a tu base de datos en Supabase
 app.get('/probar-bd', async (req, res) => {
-    // Intenta leer la tabla "usuarios" (que ahorita está vacía)
     const { data, error } = await supabase.from('usuarios').select('*');
-    
     if (error) {
         return res.status(500).json({ error: "Error conectando a Supabase: " + error.message });
     }
     res.json({ mensaje: "Conexión a Supabase EXITOSA", datos: data });
+});
+
+// 3. NUEVA: Guardar Reserva (La usa tu App de Android)
+app.post('/reservar', async (req, res) => {
+    const { obra, horario, asiento, usuario_email } = req.body;
+    
+    // Le decimos a Supabase que inserte una nueva fila en la tabla 'reservas'
+    const { data, error } = await supabase
+        .from('reservas')
+        .insert([{ obra, horario, asiento, usuario_email }]);
+        
+    if (error) {
+        return res.status(400).json({ exito: false, error: error.message });
+    }
+    res.json({ exito: true, mensaje: 'Reserva guardada en la nube exitosamente' });
+});
+
+// 4. NUEVA: Validar QR (La usará tu ESP32/Arduino en el torniquete físico)
+app.post('/validar-qr', async (req, res) => {
+    const { obra, asiento } = req.body;
+    
+    // Buscamos si existe ese asiento exacto para esa obra en Supabase
+    const { data, error } = await supabase
+        .from('reservas')
+        .select('*')
+        .eq('obra', obra)
+        .eq('asiento', asiento);
+        
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    
+    if (data.length > 0) {
+        res.json({ acceso: true, mensaje: 'ACCESO PERMITIDO: Abriendo torniquete...' });
+    } else {
+        res.json({ acceso: false, mensaje: 'ACCESO DENEGADO: Boleto inválido.' });
+    }
 });
 
 // --- ENCENDER EL SERVIDOR ---
