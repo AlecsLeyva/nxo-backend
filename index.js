@@ -1,70 +1,94 @@
+// Importamos las librerías necesarias
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
+// Configuramos la aplicación de Express
 const app = express();
+const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Middleware para aceptar peticiones en formato JSON y evitar errores de CORS
 app.use(express.json());
+app.use(cors());
 
-// --- CONEXIÓN A SUPABASE ---
-const supabaseUrl = 'https://pvhzcyvvtqmceovlqhvp.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2aHpjeXZ2dHFtY2VvdmxxaHZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDIzNzYsImV4cCI6MjA4ODc3ODM3Nn0.aDIHrpif7I2l5rYkSwjFbzylg18vdysy2TIy8VoI9RU';
+// ==========================================
+// CONFIGURACIÓN DE SUPABASE
+// ==========================================
+// Recuerda usar tus credenciales reales aquí o en tus variables de entorno (.env)
+const supabaseUrl = process.env.SUPABASE_URL || 'TU_URL_DE_SUPABASE';
+const supabaseKey = process.env.SUPABASE_KEY || 'TU_KEY_DE_SUPABASE';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- RUTAS ---
 
-app.get('/', (req, res) => {
-    res.send('Servidor NXO Teatro - Activo');
-});
+// ==========================================
+// RUTAS DE LA APLICACIÓN (ENDPOINTS)
+// ==========================================
 
-// 1. OBTENER TODA LA CARTELERA (Para el RecyclerView de MainActivity)
+// 1. RUTA: Obtener todas las obras para la Cartelera Principal
 app.get('/cartelera', async (req, res) => {
-    const { data, error } = await supabase
-        .from('obras')
-        .select('*')
-        .order('id', { ascending: true });
+    try {
+        const { data, error } = await supabase
+            .from('obras')
+            .select('titulo, categoria, duracion, imagen_url'); // Pedimos la foto también
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        console.error("Error al obtener la cartelera:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 });
 
-// 2. NUEVA: OBTENER DETALLE DE UNA OBRA (Para DetalleObraActivity)
-// Buscamos por título para traer sinopsis, categoría y duración
+// 2. RUTA: Obtener los detalles y la sinopsis de una obra específica
 app.get('/obra-detalle/:titulo', async (req, res) => {
-    const { titulo } = req.params;
-    const { data, error } = await supabase
-        .from('obras')
-        .select('*')
-        .eq('titulo', titulo)
-        .single(); // Trae solo un objeto, no una lista
+    // Extraemos el título de la URL
+    const tituloObra = req.params.titulo;
 
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+    try {
+        const { data, error } = await supabase
+            .from('obras')
+            .select('*')
+            .eq('titulo', tituloObra)
+            .single(); // single() porque solo queremos una obra, no un arreglo
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        console.error("Error al obtener detalles de la obra:", error);
+        res.status(404).json({ error: "Obra no encontrada" });
+    }
 });
 
-// 3. REGISTRO DE USUARIOS
-app.post('/usuarios', async (req, res) => {
-    const { email, password } = req.body;
-    const { data, error } = await supabase.from('usuarios').insert([{ email, password }]);
-    if (error) return res.status(400).json({ exito: false, error: error.message });
-    res.json({ exito: true });
+// 3. RUTA: Obtener los asientos que ya están ocupados (¡LA NUEVA RUTA!)
+app.get('/asientos-ocupados', async (req, res) => {
+    // Recibimos el nombre de la obra y el horario desde Android
+    const { titulo, horario } = req.query;
+
+    try {
+        // Buscamos en tu tabla 'reservas' los asientos que coincidan
+        const { data, error } = await supabase
+            .from('reservas')
+            .select('asiento')
+            .eq('obra', titulo) // Busca en tu columna 'obra'
+            .eq('horario', horario);
+
+        if (error) throw error;
+
+        // Convertimos el resultado en una lista simple, ej: ["A1", "D6", "F3"]
+        const asientosOcupados = data.map(reserva => reserva.asiento);
+        
+        // Enviamos la lista de asientos bloqueados a la app
+        res.json(asientosOcupados);
+        
+    } catch (error) {
+        console.error("Error al buscar asientos ocupados:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
 });
 
-// 4. GUARDAR RESERVAS
-app.post('/reservar', async (req, res) => {
-    const { obra, horario, asiento, usuario_email } = req.body;
-    const { data, error } = await supabase.from('reservas').insert([{ obra, horario, asiento, usuario_email }]);
-    if (error) return res.status(400).json({ exito: false, error: error.message });
-    res.json({ exito: true });
+// ==========================================
+// INICIAR EL SERVIDOR
+// ==========================================
+app.listen(port, () => {
+    console.log(`Servidor de NXO Teatro corriendo exitosamente en el puerto ${port}`);
 });
-
-// 5. VALIDACIÓN QR (HARDWARE)
-app.post('/validar-qr', async (req, res) => {
-    const { obra, asiento } = req.body;
-    const { data, error } = await supabase.from('reservas').select('*').eq('obra', obra).eq('asiento', asiento);
-    res.json({ acceso: data && data.length > 0 });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Corriendo en puerto ${PORT}`));
