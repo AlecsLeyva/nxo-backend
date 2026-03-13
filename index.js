@@ -11,13 +11,19 @@ app.use(cors());
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE
 // ==========================================
-const supabaseUrl = process.env.SUPABASE_URL || 'https://pvhzcyvvtqmceovlqhvp.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2aHpjeXZ2dHFtY2VvdmxxaHZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDIzNzYsImV4cCI6MjA4ODc3ODM3Nn0.aDIHrpif7I2l5rYkSwjFbzylg18vdysy2TIy8VoI9RU';
+// ¡OJO! Pon tus llaves reales aquí antes de subir a GitHub:
+const supabaseUrl = process.env.SUPABASE_URL || 'TU_URL_DE_SUPABASE';
+const supabaseKey = process.env.SUPABASE_KEY || 'TU_KEY_DE_SUPABASE';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
 // RUTAS (ENDPOINTS)
 // ==========================================
+
+// 0. RUTA PRINCIPAL: Para que el navegador no te marque "Cannot GET /"
+app.get('/', (req, res) => {
+    res.send('¡El servidor de NXO Teatro está funcionando perfectamente! 🎭');
+});
 
 // 1. Cartelera Principal
 app.get('/cartelera', async (req, res) => {
@@ -67,11 +73,10 @@ app.get('/asientos-ocupados', async (req, res) => {
     }
 });
 
-// 4. Guardar nueva reserva (La nueva ruta POST)
+// 4. Guardar nueva reserva
 app.post('/reservar', async (req, res) => {
     const { obra, horario, asientos, usuario_email } = req.body;
     try {
-        // Transformamos la lista ["F2", "F3"] en formato para Supabase
         const insertData = asientos.map(asiento => ({
             obra: obra,
             horario: horario,
@@ -91,6 +96,28 @@ app.post('/reservar', async (req, res) => {
     }
 });
 
+// 5. ¡LA NUEVA RUTA! Obtener el historial de boletos de un usuario
+app.get('/mis-boletos', async (req, res) => {
+    const emailUsuario = req.query.email || 'martin@gmail.com';
+
+    try {
+        const { data, error } = await supabase
+            .from('reservas')
+            .select('obra, horario, asiento')
+            .eq('usuario_email', emailUsuario); 
+
+        if (error) throw error;
+        
+        res.json(data);
+    } catch (error) {
+        console.error("Error al obtener historial:", error);
+        res.status(500).json({ error: "Error al cargar el historial" });
+    }
+});
+
+// ==========================================
+// INICIAR EL SERVIDOR
+// ==========================================
 app.listen(port, () => {
     console.log(`Servidor de NXO Teatro corriendo en el puerto ${port}`);
 });
