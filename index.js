@@ -11,8 +11,8 @@ app.use(cors());
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE
 // ==========================================
-const supabaseUrl = process.env.SUPABASE_URL || 'TU_URL_DE_SUPABASE';
-const supabaseKey = process.env.SUPABASE_KEY || 'TU_KEY_DE_SUPABASE';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://pvhzcyvvtqmceovlqhvp.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2aHpjeXZ2dHFtY2VvdmxxaHZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDIzNzYsImV4cCI6MjA4ODc3ODM3Nn0.aDIHrpif7I2l5rYkSwjFbzylg18vdysy2TIy8VoI9RU';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
