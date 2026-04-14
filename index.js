@@ -2,7 +2,7 @@ require('dotenv').config(); // Por si usas archivo .env para tus variables
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcrypt'); // <-- LIBRERÍA DE SEGURIDAD AGREGADA
+const bcrypt = require('bcrypt'); // Librería de seguridad
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,7 +19,7 @@ const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ==========================================
-// RUTAS (ENDPOINTS)
+// RUTAS DE CLIENTE
 // ==========================================
 
 // 0. RUTA PRINCIPAL
@@ -121,7 +121,6 @@ app.get('/mis-boletos', async (req, res) => {
 app.post('/usuarios', async (req, res) => {
     const { email, password } = req.body;
     try {
-        // Encriptamos la contraseña dándole 10 vueltas de sal (salt)
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const { data, error } = await supabase
@@ -139,7 +138,6 @@ app.post('/usuarios', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        // Buscamos al usuario SOLO por el correo
         const { data, error } = await supabase
             .from('usuarios')
             .select('*')
@@ -150,7 +148,6 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ error: "Credenciales incorrectas" });
         }
 
-        // Comparamos la contraseña escrita con el Hash guardado
         const passwordValida = await bcrypt.compare(password, data.password);
         if (!passwordValida) {
             return res.status(401).json({ error: "Credenciales incorrectas" });
@@ -159,6 +156,61 @@ app.post('/login', async (req, res) => {
         res.json({ success: true, message: 'Login exitoso', usuario: data.email });
     } catch (error) {
         res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
+// ==========================================
+// RUTAS DE ADMINISTRADOR (NUEVAS)
+// ==========================================
+
+// 8. Estadísticas del Dashboard (Boletos y Obras activas)
+app.get('/admin/stats', async (req, res) => {
+    try {
+        // Contamos cuántas obras hay
+        const { count: obrasCount, error: errorObras } = await supabase
+            .from('obras')
+            .select('*', { count: 'exact', head: true });
+
+        // Contamos cuántas reservas totales hay
+        const { count: reservasCount, error: errorReservas } = await supabase
+            .from('reservas')
+            .select('*', { count: 'exact', head: true });
+
+        if (errorObras || errorReservas) throw new Error("Error en Supabase");
+
+        res.json({ obrasActivas: obrasCount || 0, boletosVendidos: reservasCount || 0 });
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener estadísticas" });
+    }
+});
+
+// 9. Registrar una nueva obra
+app.post('/obras', async (req, res) => {
+    const { titulo, categoria, duracion, imagen_url } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('obras')
+            .insert([{ titulo, categoria, duracion, imagen_url }]);
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Obra registrada con éxito' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al registrar la obra" });
+    }
+});
+
+// 10. Ver todas las reservas (Para la lista del Admin)
+app.get('/todas-reservas', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('reservas')
+            .select('*')
+            .order('id', { ascending: false }); // Las más recientes primero
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: "Error al cargar todas las reservas" });
     }
 });
 
