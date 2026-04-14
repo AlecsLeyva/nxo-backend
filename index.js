@@ -27,12 +27,12 @@ app.get('/', (req, res) => {
     res.send('¡El servidor de NXO Teatro está funcionando perfectamente! 🎭');
 });
 
-// 1. Cartelera Principal
+// 1. Cartelera Principal (Ahora incluye ID y Sinopsis)
 app.get('/cartelera', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('obras')
-            .select('titulo, categoria, duracion, imagen_url');
+            .select('id, titulo, categoria, duracion, sinopsis, imagen_url');
         if (error) throw error;
         res.json(data);
     } catch (error) {
@@ -112,7 +112,6 @@ app.get('/mis-boletos', async (req, res) => {
         
         res.json(data);
     } catch (error) {
-        console.error("Error al obtener historial:", error);
         res.status(500).json({ error: "Error al cargar el historial" });
     }
 });
@@ -160,18 +159,16 @@ app.post('/login', async (req, res) => {
 });
 
 // ==========================================
-// RUTAS DE ADMINISTRADOR (NUEVAS)
+// RUTAS DE ADMINISTRADOR (EL CRUD COMPLETO)
 // ==========================================
 
 // 8. Estadísticas del Dashboard (Boletos y Obras activas)
 app.get('/admin/stats', async (req, res) => {
     try {
-        // Contamos cuántas obras hay
         const { count: obrasCount, error: errorObras } = await supabase
             .from('obras')
             .select('*', { count: 'exact', head: true });
 
-        // Contamos cuántas reservas totales hay
         const { count: reservasCount, error: errorReservas } = await supabase
             .from('reservas')
             .select('*', { count: 'exact', head: true });
@@ -184,28 +181,13 @@ app.get('/admin/stats', async (req, res) => {
     }
 });
 
-// 9. Registrar una nueva obra
-app.post('/obras', async (req, res) => {
-    const { titulo, categoria, duracion, imagen_url } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from('obras')
-            .insert([{ titulo, categoria, duracion, imagen_url }]);
-
-        if (error) throw error;
-        res.json({ success: true, message: 'Obra registrada con éxito' });
-    } catch (error) {
-        res.status(500).json({ error: "Error al registrar la obra" });
-    }
-});
-
-// 10. Ver todas las reservas (Para la lista del Admin)
+// 9. Ver todas las reservas (Historial Global)
 app.get('/todas-reservas', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('reservas')
             .select('*')
-            .order('id', { ascending: false }); // Las más recientes primero
+            .order('id', { ascending: false });
 
         if (error) throw error;
         res.json(data);
@@ -214,7 +196,22 @@ app.get('/todas-reservas', async (req, res) => {
     }
 });
 
-// 11. Editar una obra existente
+// 10. Registrar una NUEVA obra (CREATE)
+app.post('/obras', async (req, res) => {
+    const { titulo, categoria, duracion, sinopsis, imagen_url } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('obras')
+            .insert([{ titulo, categoria, duracion, sinopsis, imagen_url }]);
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Obra registrada con éxito' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al registrar la obra" });
+    }
+});
+
+// 11. Editar una obra existente (UPDATE)
 app.put('/obras/:id', async (req, res) => {
     const { id } = req.params;
     const { titulo, categoria, duracion, sinopsis, imagen_url } = req.body;
@@ -225,13 +222,13 @@ app.put('/obras/:id', async (req, res) => {
             .eq('id', id);
 
         if (error) throw error;
-        res.json({ success: true, message: 'Obra actualizada' });
+        res.json({ success: true, message: 'Obra actualizada correctamente' });
     } catch (error) {
         res.status(500).json({ error: "Error al actualizar la obra" });
     }
 });
 
-// 12. Borrar una obra
+// 12. Borrar una obra (DELETE)
 app.delete('/obras/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -241,7 +238,7 @@ app.delete('/obras/:id', async (req, res) => {
             .eq('id', id);
 
         if (error) throw error;
-        res.json({ success: true, message: 'Obra eliminada' });
+        res.json({ success: true, message: 'Obra eliminada con éxito' });
     } catch (error) {
         res.status(500).json({ error: "Error al eliminar la obra" });
     }
