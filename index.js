@@ -2,6 +2,7 @@ require('dotenv').config(); // Por si usas archivo .env para tus variables
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcrypt'); // <-- LIBRERÍA DE SEGURIDAD AGREGADA
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -116,13 +117,16 @@ app.get('/mis-boletos', async (req, res) => {
     }
 });
 
-// 6. Registrar nuevo usuario
+// 6. Registrar nuevo usuario (CON BCRYPT)
 app.post('/usuarios', async (req, res) => {
     const { email, password } = req.body;
     try {
+        // Encriptamos la contraseña dándole 10 vueltas de sal (salt)
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const { data, error } = await supabase
             .from('usuarios')
-            .insert([{ email: email, password: password }]);
+            .insert([{ email: email, password: hashedPassword }]);
 
         if (error) throw error;
         res.json({ success: true, message: 'Usuario registrado' });
@@ -131,18 +135,24 @@ app.post('/usuarios', async (req, res) => {
     }
 });
 
-// 7. ¡LA RUTA PERDIDA! Iniciar Sesión (Login)
+// 7. Iniciar Sesión (CON BCRYPT)
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
+        // Buscamos al usuario SOLO por el correo
         const { data, error } = await supabase
             .from('usuarios')
             .select('*')
             .eq('email', email)
-            .eq('password', password)
             .single(); 
 
         if (error || !data) {
+            return res.status(401).json({ error: "Credenciales incorrectas" });
+        }
+
+        // Comparamos la contraseña escrita con el Hash guardado
+        const passwordValida = await bcrypt.compare(password, data.password);
+        if (!passwordValida) {
             return res.status(401).json({ error: "Credenciales incorrectas" });
         }
         
