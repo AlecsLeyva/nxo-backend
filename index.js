@@ -114,7 +114,20 @@ app.get('/mis-boletos', async (req, res) => {
         res.status(500).json({ error: "Error al cargar el historial" });
     }
 });
+// 6. Registrar nuevo usuario
+app.post('/usuarios', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('usuarios')
+            .insert([{ email: email, password: password }]);
 
+        if (error) throw error;
+        res.json({ success: true, message: 'Usuario registrado' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al guardar usuario" });
+    }
+});
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
