@@ -1,8 +1,8 @@
-require('dotenv').config(); // Por si usas archivo .env para tus variables
+require('dotenv').config(); 
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcrypt'); // Librería de seguridad
+const bcrypt = require('bcrypt');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -13,7 +13,6 @@ app.use(cors());
 // ==========================================
 // CONFIGURACIÓN DE SUPABASE
 // ==========================================
-// ¡OJO! Pon tus llaves reales aquí antes de subir a GitHub:
 const supabaseUrl = process.env.SUPABASE_URL || 'https://pvhzcyvvtqmceovlqhvp.supabase.co';
 const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2aHpjeXZ2dHFtY2VvdmxxaHZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDIzNzYsImV4cCI6MjA4ODc3ODM3Nn0.aDIHrpif7I2l5rYkSwjFbzylg18vdysy2TIy8VoI9RU';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -27,7 +26,7 @@ app.get('/', (req, res) => {
     res.send('¡El servidor de NXO Teatro está funcionando perfectamente! 🎭');
 });
 
-// 1. Cartelera Principal (Ahora incluye ID y Sinopsis)
+// 1. Cartelera Principal
 app.get('/cartelera', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -56,7 +55,7 @@ app.get('/obra-detalle/:titulo', async (req, res) => {
     }
 });
 
-// 3. Obtener asientos ocupados (Pintar de rojo)
+// 3. Obtener asientos ocupados
 app.get('/asientos-ocupados', async (req, res) => {
     const { titulo, horario } = req.query;
     try {
@@ -67,7 +66,6 @@ app.get('/asientos-ocupados', async (req, res) => {
             .eq('horario', horario);
 
         if (error) throw error;
-
         const asientosOcupados = data.map(reserva => reserva.asiento);
         res.json(asientosOcupados);
     } catch (error) {
@@ -83,7 +81,8 @@ app.post('/reservar', async (req, res) => {
             obra: obra,
             horario: horario,
             asiento: asiento,
-            usuario_email: usuario_email || 'martin@gmail.com' 
+            usuario_email: usuario_email || 'martin@gmail.com',
+            escaneado: false // Por defecto, un boleto nuevo no está escaneado
         }));
 
         const { data, error } = await supabase
@@ -91,37 +90,33 @@ app.post('/reservar', async (req, res) => {
             .insert(insertData);
 
         if (error) throw error;
-        
         res.json({ success: true, message: 'Reserva guardada con éxito' });
     } catch (error) {
         res.status(500).json({ error: "Error al guardar en la base de datos" });
     }
 });
 
-// 5. Obtener el historial de boletos de un usuario
+// 5. Obtener el historial de boletos
 app.get('/mis-boletos', async (req, res) => {
     const emailUsuario = req.query.email || 'martin@gmail.com';
-
     try {
         const { data, error } = await supabase
             .from('reservas')
-            .select('obra, horario, asiento')
+            .select('id, obra, horario, asiento')
             .eq('usuario_email', emailUsuario); 
 
         if (error) throw error;
-        
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: "Error al cargar el historial" });
     }
 });
 
-// 6. Registrar nuevo usuario (CON BCRYPT)
+// 6. Registrar nuevo usuario 
 app.post('/usuarios', async (req, res) => {
     const { email, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-
         const { data, error } = await supabase
             .from('usuarios')
             .insert([{ email: email, password: hashedPassword }]);
@@ -133,7 +128,7 @@ app.post('/usuarios', async (req, res) => {
     }
 });
 
-// 7. Iniciar Sesión (CON BCRYPT)
+// 7. Iniciar Sesión 
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -143,14 +138,10 @@ app.post('/login', async (req, res) => {
             .eq('email', email)
             .single(); 
 
-        if (error || !data) {
-            return res.status(401).json({ error: "Credenciales incorrectas" });
-        }
+        if (error || !data) return res.status(401).json({ error: "Credenciales incorrectas" });
 
         const passwordValida = await bcrypt.compare(password, data.password);
-        if (!passwordValida) {
-            return res.status(401).json({ error: "Credenciales incorrectas" });
-        }
+        if (!passwordValida) return res.status(401).json({ error: "Credenciales incorrectas" });
         
         res.json({ success: true, message: 'Login exitoso', usuario: data.email });
     } catch (error) {
@@ -159,10 +150,10 @@ app.post('/login', async (req, res) => {
 });
 
 // ==========================================
-// RUTAS DE ADMINISTRADOR (EL CRUD COMPLETO)
+// RUTAS DE ADMINISTRADOR
 // ==========================================
 
-// 8. Estadísticas del Dashboard (Boletos y Obras activas)
+// 8. Estadísticas del Dashboard
 app.get('/admin/stats', async (req, res) => {
     try {
         const { count: obrasCount, error: errorObras } = await supabase
@@ -174,7 +165,6 @@ app.get('/admin/stats', async (req, res) => {
             .select('*', { count: 'exact', head: true });
 
         if (errorObras || errorReservas) throw new Error("Error en Supabase");
-
         res.json({ obrasActivas: obrasCount || 0, boletosVendidos: reservasCount || 0 });
     } catch (error) {
         res.status(500).json({ error: "Error al obtener estadísticas" });
@@ -196,7 +186,7 @@ app.get('/todas-reservas', async (req, res) => {
     }
 });
 
-// 10. Registrar una NUEVA obra (CREATE)
+// 10. Registrar nueva obra (CREATE)
 app.post('/obras', async (req, res) => {
     const { titulo, categoria, duracion, sinopsis, imagen_url } = req.body;
     try {
@@ -211,7 +201,7 @@ app.post('/obras', async (req, res) => {
     }
 });
 
-// 11. Editar una obra existente (UPDATE)
+// 11. Editar obra (UPDATE)
 app.put('/obras/:id', async (req, res) => {
     const { id } = req.params;
     const { titulo, categoria, duracion, sinopsis, imagen_url } = req.body;
@@ -228,7 +218,7 @@ app.put('/obras/:id', async (req, res) => {
     }
 });
 
-// 12. Borrar una obra (DELETE)
+// 12. Borrar obra (DELETE)
 app.delete('/obras/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -243,7 +233,8 @@ app.delete('/obras/:id', async (req, res) => {
         res.status(500).json({ error: "Error al eliminar la obra" });
     }
 });
-// 13. Validar Boleto QR (NUEVA RUTA)
+
+// 13. Validar Boleto QR (¡LA NUEVA RUTA!)
 app.put('/reservas/escanear/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -263,7 +254,7 @@ app.put('/reservas/escanear/:id', async (req, res) => {
             return res.status(400).json({ error: "❌ ALERTA: Este boleto YA FUE ESCANEADO." });
         }
 
-        // 3. Si todo está bien, le damos acceso y lo marcamos como escaneado
+        // 3. Le damos acceso y lo marcamos como escaneado
         const { error: updateError } = await supabase
             .from('reservas')
             .update({ escaneado: true })
@@ -276,6 +267,7 @@ app.put('/reservas/escanear/:id', async (req, res) => {
         res.status(500).json({ error: "Error en el servidor al validar el boleto." });
     }
 });
+
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
