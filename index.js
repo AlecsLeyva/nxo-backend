@@ -243,7 +243,39 @@ app.delete('/obras/:id', async (req, res) => {
         res.status(500).json({ error: "Error al eliminar la obra" });
     }
 });
+// 13. Validar Boleto QR (NUEVA RUTA)
+app.put('/reservas/escanear/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // 1. Buscamos el boleto
+        const { data: reserva, error: selectError } = await supabase
+            .from('reservas')
+            .select('escaneado')
+            .eq('id', id)
+            .single();
 
+        if (selectError || !reserva) {
+            return res.status(404).json({ error: "Boleto no encontrado en la base de datos." });
+        }
+
+        // 2. Revisamos si ya entró
+        if (reserva.escaneado === true) {
+            return res.status(400).json({ error: "❌ ALERTA: Este boleto YA FUE ESCANEADO." });
+        }
+
+        // 3. Si todo está bien, le damos acceso y lo marcamos como escaneado
+        const { error: updateError } = await supabase
+            .from('reservas')
+            .update({ escaneado: true })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+        res.json({ success: true, message: '✅ ACCESO CONCEDIDO. Boleto validado.' });
+        
+    } catch (error) {
+        res.status(500).json({ error: "Error en el servidor al validar el boleto." });
+    }
+});
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
