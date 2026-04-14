@@ -1,3 +1,4 @@
+require('dotenv').config(); // Por si usas archivo .env para tus variables
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -20,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // RUTAS (ENDPOINTS)
 // ==========================================
 
-// 0. RUTA PRINCIPAL: Para que el navegador no te marque "Cannot GET /"
+// 0. RUTA PRINCIPAL
 app.get('/', (req, res) => {
     res.send('¡El servidor de NXO Teatro está funcionando perfectamente! 🎭');
 });
@@ -96,7 +97,7 @@ app.post('/reservar', async (req, res) => {
     }
 });
 
-// 5. ¡LA NUEVA RUTA! Obtener el historial de boletos de un usuario
+// 5. Obtener el historial de boletos de un usuario
 app.get('/mis-boletos', async (req, res) => {
     const emailUsuario = req.query.email || 'martin@gmail.com';
 
@@ -114,6 +115,7 @@ app.get('/mis-boletos', async (req, res) => {
         res.status(500).json({ error: "Error al cargar el historial" });
     }
 });
+
 // 6. Registrar nuevo usuario
 app.post('/usuarios', async (req, res) => {
     const { email, password } = req.body;
@@ -128,6 +130,28 @@ app.post('/usuarios', async (req, res) => {
         res.status(500).json({ error: "Error al guardar usuario" });
     }
 });
+
+// 7. ¡LA RUTA PERDIDA! Iniciar Sesión (Login)
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('email', email)
+            .eq('password', password)
+            .single(); 
+
+        if (error || !data) {
+            return res.status(401).json({ error: "Credenciales incorrectas" });
+        }
+        
+        res.json({ success: true, message: 'Login exitoso', usuario: data.email });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+});
+
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
