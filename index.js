@@ -214,6 +214,39 @@ app.get('/todas-reservas', async (req, res) => {
     }
 });
 
+// 11. Editar una obra existente
+app.put('/obras/:id', async (req, res) => {
+    const { id } = req.params;
+    const { titulo, categoria, duracion, sinopsis, imagen_url } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('obras')
+            .update({ titulo, categoria, duracion, sinopsis, imagen_url })
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Obra actualizada' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al actualizar la obra" });
+    }
+});
+
+// 12. Borrar una obra
+app.delete('/obras/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase
+            .from('obras')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Obra eliminada' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al eliminar la obra" });
+    }
+});
+
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
