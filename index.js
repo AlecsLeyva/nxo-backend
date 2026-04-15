@@ -267,7 +267,21 @@ app.put('/reservas/escanear/:id', async (req, res) => {
         res.status(500).json({ error: "Error en el servidor al validar el boleto." });
     }
 });
+// 14. Cancelar Reserva (Cliente)
+app.post('/reservas/cancelar', async (req, res) => {
+    const { ids } = req.body; // Recibe una lista de IDs para borrar al mismo tiempo
+    try {
+        const { error } = await supabase
+            .from('reservas')
+            .delete()
+            .in('id', ids);
 
+        if (error) throw error;
+        res.json({ success: true, message: 'Reserva cancelada y asientos liberados' });
+    } catch (error) {
+        res.status(500).json({ error: "Error al cancelar la reserva en la base de datos" });
+    }
+});
 // ==========================================
 // INICIAR EL SERVIDOR
 // ==========================================
