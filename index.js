@@ -82,20 +82,27 @@ app.post('/reservar', async (req, res) => {
             horario: horario,
             asiento: asiento,
             usuario_email: usuario_email || 'martin@gmail.com',
-            escaneado: false // Por defecto, un boleto nuevo no está escaneado
+            escaneado: false
         }));
 
         const { data, error } = await supabase
             .from('reservas')
             .insert(insertData);
 
-        if (error) throw error;
+        // AQUÍ ATRAPAMOS EL CHOQUE
+        if (error) {
+            // El código 23505 en PostgreSQL significa "Violación de Restricción Única" (Alguien ya lo compró)
+            if (error.code === '23505') {
+                return res.status(409).json({ error: "¡Ups! Alguien más compró uno de estos asientos hace un instante. Por favor, actualiza el mapa." });
+            }
+            throw error;
+        }
+        
         res.json({ success: true, message: 'Reserva guardada con éxito' });
     } catch (error) {
         res.status(500).json({ error: "Error al guardar en la base de datos" });
     }
 });
-
 // 5. Obtener el historial de boletos
 app.get('/mis-boletos', async (req, res) => {
     const emailUsuario = req.query.email || 'martin@gmail.com';
